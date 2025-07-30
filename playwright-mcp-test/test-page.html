@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playwright MCP Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        input, select, button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 4px;
+            display: none;
+        }
+        .highlight {
+            background-color: yellow;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Playwright MCP Test Page</h1>
+        
+        <p>This is a test page for demonstrating <span class="highlight">Playwright MCP</span> capabilities.</p>
+        
+        <div class="form-section">
+            <h2>Interactive Form</h2>
+            <form id="testForm">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter username">
+                
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter email">
+                
+                <label for="browser">Favorite Browser:</label>
+                <select id="browser" name="browser">
+                    <option value="">Select a browser</option>
+                    <option value="chrome">Chrome</option>
+                    <option value="firefox">Firefox</option>
+                    <option value="safari">Safari</option>
+                    <option value="edge">Edge</option>
+                </select>
+                
+                <button type="submit" id="submitBtn">Submit Form</button>
+            </form>
+            
+            <div id="result"></div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Test Actions</h2>
+            <button id="alertBtn">Show Alert</button>
+            <button id="consoleBtn">Log to Console</button>
+            <button id="dateBtn">Show Current Date</button>
+        </div>
+    </div>
+    
+    <script>
+        // Form submission handler
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <h3>Form Submitted!</h3>
+                <p><strong>Username:</strong> ${data.username || 'Not provided'}</p>
+                <p><strong>Email:</strong> ${data.email || 'Not provided'}</p>
+                <p><strong>Browser:</strong> ${data.browser || 'Not selected'}</p>
+            `;
+            
+            console.log('Form submitted with data:', data);
+        });
+        
+        // Alert button
+        document.getElementById('alertBtn').addEventListener('click', function() {
+            alert('Hello from Playwright MCP Test!');
+            console.log('Alert button clicked');
+        });
+        
+        // Console log button
+        document.getElementById('consoleBtn').addEventListener('click', function() {
+            console.log('Test log message');
+            console.warn('Test warning message');
+            console.error('Test error message');
+            console.info('Test info message');
+        });
+        
+        // Date button
+        document.getElementById('dateBtn').addEventListener('click', function() {
+            const now = new Date();
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `<h3>Current Date & Time:</h3><p>${now.toString()}</p>`;
+            console.log('Current date:', now.toString());
+        });
+        
+        // Log initial page load
+        console.log('Test page loaded successfully');
+    </script>
+</body>
+</html>
