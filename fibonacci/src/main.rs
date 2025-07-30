@@ -1,24 +1,36 @@
 use std::env;
 
-fn fibonacci(n: u32) -> u64 {
-    match n {
-        0 => 0,
-        1 => 1,
-        _ => {
-            let mut a = 0u64;
-            let mut b = 1u64;
-            for _ in 2..=n {
-                let temp = a + b;
-                a = b;
-                b = temp;
-            }
-            b
+struct Fibonacci {
+    current: u64,
+    next: u64,
+}
+
+impl Fibonacci {
+    fn new() -> Self {
+        Fibonacci {
+            current: 0,
+            next: 1,
         }
     }
 }
 
+impl Iterator for Fibonacci {
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current;
+        self.current = self.next;
+        self.next = current.saturating_add(self.next);
+        Some(current)
+    }
+}
+
+fn fibonacci(n: u32) -> u64 {
+    Fibonacci::new().nth(n as usize).unwrap_or(0)
+}
+
 fn fibonacci_sequence(count: usize) -> Vec<u64> {
-    (0..count as u32).map(fibonacci).collect()
+    Fibonacci::new().take(count).collect()
 }
 
 fn main() {
@@ -31,9 +43,9 @@ fn main() {
     };
     
     println!("Fibonacci sequence (first {} numbers):", count);
-    let sequence = fibonacci_sequence(count);
     
-    for (i, num) in sequence.iter().enumerate() {
+    // Using the iterator directly
+    for (i, num) in Fibonacci::new().take(count).enumerate() {
         println!("F({}) = {}", i, num);
     }
 }
@@ -81,5 +93,40 @@ mod tests {
     fn test_fibonacci_sequence_single() {
         let seq = fibonacci_sequence(1);
         assert_eq!(seq, vec![0]);
+    }
+
+    #[test]
+    fn test_fibonacci_iterator() {
+        let mut fib = Fibonacci::new();
+        assert_eq!(fib.next(), Some(0));
+        assert_eq!(fib.next(), Some(1));
+        assert_eq!(fib.next(), Some(1));
+        assert_eq!(fib.next(), Some(2));
+        assert_eq!(fib.next(), Some(3));
+        assert_eq!(fib.next(), Some(5));
+        assert_eq!(fib.next(), Some(8));
+        assert_eq!(fib.next(), Some(13));
+    }
+
+    #[test]
+    fn test_fibonacci_iterator_take() {
+        let fib_iter = Fibonacci::new();
+        let first_ten: Vec<u64> = fib_iter.take(10).collect();
+        assert_eq!(first_ten, vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34]);
+    }
+
+    #[test]
+    fn test_fibonacci_iterator_nth() {
+        assert_eq!(Fibonacci::new().nth(0), Some(0));
+        assert_eq!(Fibonacci::new().nth(1), Some(1));
+        assert_eq!(Fibonacci::new().nth(10), Some(55));
+        assert_eq!(Fibonacci::new().nth(20), Some(6765));
+    }
+
+    #[test]
+    fn test_fibonacci_iterator_skip() {
+        let fib_iter = Fibonacci::new();
+        let skip_five: Vec<u64> = fib_iter.skip(5).take(5).collect();
+        assert_eq!(skip_five, vec![5, 8, 13, 21, 34]);
     }
 }
