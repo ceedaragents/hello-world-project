@@ -1,0 +1,23 @@
+[package]
+name = "mcts"
+version = "0.1.0"
+authors = ["Your Name <you@example.com>"]
+edition = "2021"
+description = "A memory-safe Monte Carlo Tree Search library with concurrency support"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/mcts"
+keywords = ["mcts", "monte-carlo", "tree-search", "ai", "game"]
+categories = ["algorithms", "game-development"]
+
+[dependencies]
+rand = "0.8"
+rayon = "1.7"
+parking_lot = "0.12"
+num-traits = "0.2"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "mcts_bench"
+harness = false
