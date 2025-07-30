@@ -1,6 +1,6 @@
 //! Tic-Tac-Toe example using MCTS
 
-use mcts::{GameState, Player, MCTSConfig, MCTSTree, ConcurrentMCTS};
+use mcts::{GameState, Player, MCTSConfig, MCTSTree};
 use std::fmt;
 
 /// Tic-Tac-Toe board position
@@ -161,14 +161,13 @@ fn main() {
             exploration_constant: 1.414,
             max_iterations: 10000,
             max_simulation_depth: 100,
-            num_threads: 4,
         };
         
         // Run MCTS
         let start = std::time::Instant::now();
         
-        // Use concurrent MCTS for demonstration
-        let mcts = ConcurrentMCTS::new(game.clone(), config);
+        // Run MCTS
+        let mcts = MCTSTree::new(game.clone(), config);
         let result = mcts.run();
         
         let elapsed = start.elapsed();
@@ -233,7 +232,6 @@ mod tests {
             exploration_constant: 1.414,
             max_iterations: 1000,
             max_simulation_depth: 50,
-            num_threads: 1,
         };
         
         let tree = MCTSTree::new(game, config);

@@ -1,8 +1,6 @@
 //! Integration tests for MCTS library
 
-use mcts::{GameState, Player, MCTSConfig, MCTSTree, ConcurrentMCTS};
-use std::sync::Arc;
-use std::time::Duration;
+use mcts::{GameState, Player, MCTSConfig, MCTSTree};
 
 /// Simple counting game for testing
 #[derive(Clone, Debug)]
@@ -62,13 +60,12 @@ impl GameState for CountingGame {
 }
 
 #[test]
-fn test_single_threaded_mcts() {
+fn test_mcts() {
     let game = CountingGame::new(10);
     let config = MCTSConfig {
         exploration_constant: 1.414,
         max_iterations: 1000,
         max_simulation_depth: 50,
-        num_threads: 1,
     };
     
     let tree = MCTSTree::new(game, config);
@@ -80,41 +77,6 @@ fn test_single_threaded_mcts() {
     assert!(result.action_visits.iter().any(|(_, visits)| *visits > 0));
 }
 
-#[test]
-fn test_concurrent_mcts() {
-    let game = CountingGame::new(15);
-    let config = MCTSConfig {
-        exploration_constant: 1.414,
-        max_iterations: 5000,
-        max_simulation_depth: 50,
-        num_threads: 4,
-    };
-    
-    let mcts = ConcurrentMCTS::new(game, config);
-    let result = mcts.run();
-    
-    assert!(result.iterations >= 4000); // Some overhead is expected
-    assert!(result.root_visits > 0);
-    assert!(!result.action_visits.is_empty());
-}
-
-#[test]
-fn test_concurrent_mcts_timed() {
-    let game = CountingGame::new(20);
-    let config = MCTSConfig {
-        exploration_constant: 1.414,
-        max_iterations: 100000, // High limit, time will be the constraint
-        max_simulation_depth: 50,
-        num_threads: 2,
-    };
-    
-    let mcts = ConcurrentMCTS::new(game, config);
-    let result = mcts.run_timed(Duration::from_millis(100));
-    
-    assert!(result.iterations > 0);
-    assert!(result.root_visits > 0);
-    assert!(!result.action_visits.is_empty());
-}
 
 #[test]
 fn test_deterministic_win() {
@@ -125,7 +87,6 @@ fn test_deterministic_win() {
         exploration_constant: 0.1, // Lower exploration for more exploitation
         max_iterations: 10000,
         max_simulation_depth: 50,
-        num_threads: 1,
     };
     
     let tree = MCTSTree::new(game, config);
@@ -135,29 +96,6 @@ fn test_deterministic_win() {
     assert_eq!(result.best_action, 1);
 }
 
-#[test]
-fn test_memory_safety_concurrent() {
-    // Test that concurrent access is memory safe
-    let game = CountingGame::new(30);
-    let config = MCTSConfig {
-        exploration_constant: 1.414,
-        max_iterations: 10000,
-        max_simulation_depth: 100,
-        num_threads: 8, // Many threads to test concurrency
-    };
-    
-    let mcts = Arc::new(ConcurrentMCTS::new(game, config));
-    
-    // Run multiple times to ensure no data races
-    for _ in 0..5 {
-        let mcts_clone = mcts.clone();
-        std::thread::spawn(move || {
-            let _result = mcts_clone.run_timed(Duration::from_millis(50));
-        });
-    }
-    
-    std::thread::sleep(Duration::from_millis(300));
-}
 
 #[test]
 fn test_node_expansion() {
@@ -210,43 +148,3 @@ fn test_ucb1_calculation() {
     assert!(ucb_value < f64::INFINITY);
 }
 
-/// Performance comparison test
-#[test]
-#[ignore] // Run with --ignored flag
-fn test_performance_comparison() {
-    let game = CountingGame::new(50);
-    let iterations = 50000;
-    
-    // Single-threaded
-    let config_single = MCTSConfig {
-        exploration_constant: 1.414,
-        max_iterations: iterations,
-        max_simulation_depth: 100,
-        num_threads: 1,
-    };
-    
-    let start = std::time::Instant::now();
-    let tree = MCTSTree::new(game.clone(), config_single);
-    let _result1 = tree.run();
-    let single_duration = start.elapsed();
-    
-    // Multi-threaded
-    let config_multi = MCTSConfig {
-        exploration_constant: 1.414,
-        max_iterations: iterations,
-        max_simulation_depth: 100,
-        num_threads: 4,
-    };
-    
-    let start = std::time::Instant::now();
-    let mcts = ConcurrentMCTS::new(game, config_multi);
-    let _result2 = mcts.run();
-    let multi_duration = start.elapsed();
-    
-    println!("Single-threaded: {:?}", single_duration);
-    println!("Multi-threaded (4 threads): {:?}", multi_duration);
-    println!("Speedup: {:.2}x", single_duration.as_secs_f64() / multi_duration.as_secs_f64());
-    
-    // Multi-threaded should be faster
-    assert!(multi_duration < single_duration);
-}

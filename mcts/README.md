@@ -1,15 +1,13 @@
 # Monte Carlo Tree Search (MCTS) Library
 
-A high-performance, memory-safe Monte Carlo Tree Search implementation in Rust with built-in concurrency support.
+A high-performance, memory-safe Monte Carlo Tree Search implementation in Rust.
 
 ## Features
 
 - **Generic Implementation**: Works with any game or decision problem that implements the `GameState` trait
-- **Thread-Safe**: Built with concurrency in mind using Arc, RwLock, and Mutex
-- **Parallel Execution**: Utilizes Rayon for efficient parallel tree exploration
-- **Virtual Loss**: Implements virtual loss for better load balancing in concurrent scenarios
-- **Configurable**: Flexible configuration options for exploration, iterations, and parallelism
+- **Configurable**: Flexible configuration options for exploration and iterations
 - **Memory Safe**: Leverages Rust's ownership system for guaranteed memory safety
+- **Efficient**: Optimized tree traversal and state management
 
 ## Quick Start
 
@@ -23,7 +21,7 @@ mcts = "0.1.0"
 ## Basic Usage
 
 ```rust
-use mcts::{GameState, Player, MCTSConfig, ConcurrentMCTS};
+use mcts::{GameState, Player, MCTSConfig, MCTSTree};
 
 // Implement GameState for your game
 impl GameState for YourGame {
@@ -41,12 +39,11 @@ let config = MCTSConfig {
     exploration_constant: 1.414,
     max_iterations: 10000,
     max_simulation_depth: 100,
-    num_threads: 4,
 };
 
 let game = YourGame::new();
-let mcts = ConcurrentMCTS::new(game, config);
-let result = mcts.run();
+let tree = MCTSTree::new(game, config);
+let result = tree.run();
 
 println!("Best action: {:?}", result.best_action);
 ```
@@ -71,9 +68,8 @@ cargo run --example tictactoe
 
 ### Main Components
 
-- `MCTSTree`: Single-threaded MCTS implementation
-- `ConcurrentMCTS`: Multi-threaded MCTS implementation with virtual loss
-- `Node`: Tree node with thread-safe statistics
+- `MCTSTree`: MCTS implementation
+- `Node`: Tree node with statistics
 - `MCTSConfig`: Configuration parameters
 
 ### Configuration Options
@@ -81,7 +77,6 @@ cargo run --example tictactoe
 - `exploration_constant`: UCB1 exploration parameter (default: √2)
 - `max_iterations`: Maximum number of MCTS iterations
 - `max_simulation_depth`: Maximum depth for random rollouts
-- `num_threads`: Number of worker threads for parallel execution
 
 ## Architecture
 
@@ -91,21 +86,6 @@ The library uses a tree structure where each node represents a game state:
 2. **Expansion**: Add new children to leaf nodes
 3. **Simulation**: Random playout from leaf to terminal state
 4. **Backpropagation**: Update statistics from leaf to root
-
-### Concurrency Design
-
-- Uses `Arc<Node>` for shared ownership
-- `RwLock` for children and statistics
-- Virtual loss prevents multiple threads from exploring the same path
-- Lock-free where possible, minimal critical sections
-
-## Performance
-
-The concurrent implementation provides significant speedup:
-
-- 2-4x faster with 4 threads (depending on game complexity)
-- Scales well up to 8-16 threads
-- Virtual loss ensures good load balancing
 
 ## Testing
 

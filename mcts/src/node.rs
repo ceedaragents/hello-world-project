@@ -1,9 +1,9 @@
 //! MCTS tree node implementation
 
 use crate::traits::{GameState, Player};
-use parking_lot::{RwLock, Mutex};
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::cell::{RefCell, Cell};
 
 /// Statistics for a node
 #[derive(Debug, Clone)]
@@ -35,11 +35,11 @@ pub struct Node<S: GameState> {
     /// The parent node
     pub parent: Option<Arc<Node<S>>>,
     /// Child nodes indexed by action
-    pub children: RwLock<HashMap<S::Action, Arc<Node<S>>>>,
+    pub children: RefCell<HashMap<S::Action, Arc<Node<S>>>>,
     /// Node statistics
-    pub stats: RwLock<NodeStats>,
+    pub stats: RefCell<NodeStats>,
     /// Whether this node has been fully expanded
-    pub fully_expanded: RwLock<bool>,
+    pub fully_expanded: Cell<bool>,
     /// Cached legal actions
     legal_actions: Vec<S::Action>,
 }
@@ -54,9 +54,9 @@ impl<S: GameState> Node<S> {
             state,
             action: None,
             parent: None,
-            children: RwLock::new(HashMap::new()),
-            stats: RwLock::new(NodeStats::default()),
-            fully_expanded: RwLock::new(fully_expanded),
+            children: RefCell::new(HashMap::new()),
+            stats: RefCell::new(NodeStats::default()),
+            fully_expanded: Cell::new(fully_expanded),
             legal_actions,
         })
     }
@@ -70,9 +70,9 @@ impl<S: GameState> Node<S> {
             state,
             action: Some(action),
             parent: Some(parent),
-            children: RwLock::new(HashMap::new()),
-            stats: RwLock::new(NodeStats::default()),
-            fully_expanded: RwLock::new(fully_expanded),
+            children: RefCell::new(HashMap::new()),
+            stats: RefCell::new(NodeStats::default()),
+            fully_expanded: Cell::new(fully_expanded),
             legal_actions,
         })
     }
@@ -84,22 +84,22 @@ impl<S: GameState> Node<S> {
     
     /// Check if this node is fully expanded
     pub fn is_fully_expanded(&self) -> bool {
-        *self.fully_expanded.read()
+        self.fully_expanded.get()
     }
     
     /// Get the number of visits
     pub fn visits(&self) -> usize {
-        self.stats.read().visits
+        self.stats.borrow().visits
     }
     
     /// Get the average value
     pub fn avg_value(&self) -> f64 {
-        self.stats.read().avg_value
+        self.stats.borrow().avg_value
     }
     
     /// Get unexpanded actions
     pub fn unexpanded_actions(&self) -> Vec<S::Action> {
-        let children = self.children.read();
+        let children = self.children.borrow();
         self.legal_actions
             .iter()
             .filter(|action| !children.contains_key(action))
@@ -109,7 +109,7 @@ impl<S: GameState> Node<S> {
     
     /// Update statistics with a new value
     pub fn update(&self, value: f64) {
-        let mut stats = self.stats.write();
+        let mut stats = self.stats.borrow_mut();
         stats.visits += 1;
         stats.total_value += value;
         stats.avg_value = stats.total_value / stats.visits as f64;
@@ -117,18 +117,18 @@ impl<S: GameState> Node<S> {
     
     /// Add a child node
     pub fn add_child(self: &Arc<Self>, action: S::Action, child: Arc<Node<S>>) {
-        let mut children = self.children.write();
+        let mut children = self.children.borrow_mut();
         children.insert(action.clone(), child);
         
         // Check if fully expanded
         if children.len() == self.legal_actions.len() {
-            *self.fully_expanded.write() = true;
+            self.fully_expanded.set(true);
         }
     }
     
     /// Calculate UCB1 value for a child
     pub fn ucb1_value(&self, child: &Node<S>, exploration_constant: f64) -> f64 {
-        let child_stats = child.stats.read();
+        let child_stats = child.stats.borrow();
         if child_stats.visits == 0 {
             f64::INFINITY
         } else {
@@ -150,7 +150,7 @@ impl<S: GameState> Node<S> {
     
     /// Select the best child using UCB1
     pub fn best_child(&self, exploration_constant: f64) -> Option<Arc<Node<S>>> {
-        let children = self.children.read();
+        let children = self.children.borrow();
         children
             .values()
             .max_by(|a, b| {
@@ -163,7 +163,7 @@ impl<S: GameState> Node<S> {
     
     /// Get the best action based on visit count
     pub fn best_action(&self) -> Option<S::Action> {
-        let children = self.children.read();
+        let children = self.children.borrow();
         children
             .iter()
             .max_by_key(|(_, child)| child.visits())
@@ -172,7 +172,7 @@ impl<S: GameState> Node<S> {
     
     /// Get action statistics
     pub fn action_stats(&self) -> Vec<(S::Action, usize)> {
-        let children = self.children.read();
+        let children = self.children.borrow();
         let mut stats: Vec<_> = children
             .iter()
             .map(|(action, child)| (action.clone(), child.visits()))

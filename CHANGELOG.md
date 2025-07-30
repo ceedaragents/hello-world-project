@@ -7,15 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Removed all concurrency support to simplify the library
+- **BREAKING**: Removed `ConcurrentMCTS` struct
+- **BREAKING**: Removed `num_threads` field from `MCTSConfig`
+- **BREAKING**: Removed dependencies on `rayon` and `parking_lot`
+- Replaced thread-safe `RwLock` and `Mutex` with single-threaded `RefCell` and `Cell`
+- Simplified benchmarks to focus on single-threaded performance
+- Updated documentation to reflect single-threaded design
+
+### Removed
+- `ConcurrentMCTS` implementation
+- Virtual loss mechanism (no longer needed without concurrency)
+- Thread pool configuration
+- Concurrent benchmarks and tests
+- Dependencies: `rayon` and `parking_lot`
+
 ### Added
 - Initial implementation of Monte Carlo Tree Search (MCTS) library in Rust
 - Memory-safe implementation using Rust's ownership system
-- Concurrent MCTS with thread pool support using Rayon
-- Virtual loss implementation for better load balancing
 - Generic trait-based design supporting any two-player game
 - UCB1 (Upper Confidence Bound) selection strategy
 - Configurable exploration constant and iteration limits
-- Thread-safe node structure using Arc, RwLock, and Mutex
 - Example implementation: Tic-Tac-Toe
-- Comprehensive test suite including concurrency tests
-- Performance benchmarks comparing single vs multi-threaded execution
+- Comprehensive test suite
+- Performance benchmarks

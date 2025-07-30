@@ -1,7 +1,7 @@
 //! Benchmarks for MCTS library
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use mcts::{GameState, Player, MCTSConfig, MCTSTree, ConcurrentMCTS};
+use mcts::{GameState, Player, MCTSConfig, MCTSTree};
 
 /// Simple test game for benchmarking
 #[derive(Clone)]
@@ -63,8 +63,8 @@ impl GameState for BenchmarkGame {
     }
 }
 
-fn benchmark_single_threaded(c: &mut Criterion) {
-    let mut group = c.benchmark_group("single_threaded");
+fn benchmark_mcts(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mcts");
     
     for iterations in [100, 1000, 5000].iter() {
         group.bench_with_input(
@@ -76,7 +76,6 @@ fn benchmark_single_threaded(c: &mut Criterion) {
                     exploration_constant: 1.414,
                     max_iterations: iterations,
                     max_simulation_depth: 20,
-                    num_threads: 1,
                 };
                 
                 b.iter(|| {
@@ -90,32 +89,6 @@ fn benchmark_single_threaded(c: &mut Criterion) {
     group.finish();
 }
 
-fn benchmark_concurrent(c: &mut Criterion) {
-    let mut group = c.benchmark_group("concurrent");
-    
-    for threads in [1, 2, 4, 8].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(threads),
-            threads,
-            |b, &threads| {
-                let game = BenchmarkGame::new(10, 5);
-                let config = MCTSConfig {
-                    exploration_constant: 1.414,
-                    max_iterations: 5000,
-                    max_simulation_depth: 20,
-                    num_threads: threads,
-                };
-                
-                b.iter(|| {
-                    let mcts = ConcurrentMCTS::new(game.clone(), config.clone());
-                    black_box(mcts.run())
-                });
-            },
-        );
-    }
-    
-    group.finish();
-}
 
 fn benchmark_tree_depth(c: &mut Criterion) {
     let mut group = c.benchmark_group("tree_depth");
@@ -130,12 +103,11 @@ fn benchmark_tree_depth(c: &mut Criterion) {
                     exploration_constant: 1.414,
                     max_iterations: 1000,
                     max_simulation_depth: depth * 2,
-                    num_threads: 4,
                 };
                 
                 b.iter(|| {
-                    let mcts = ConcurrentMCTS::new(game.clone(), config.clone());
-                    black_box(mcts.run())
+                    let tree = MCTSTree::new(game.clone(), config.clone());
+                    black_box(tree.run())
                 });
             },
         );
@@ -157,12 +129,11 @@ fn benchmark_branching_factor(c: &mut Criterion) {
                     exploration_constant: 1.414,
                     max_iterations: 1000,
                     max_simulation_depth: 20,
-                    num_threads: 4,
                 };
                 
                 b.iter(|| {
-                    let mcts = ConcurrentMCTS::new(game.clone(), config.clone());
-                    black_box(mcts.run())
+                    let tree = MCTSTree::new(game.clone(), config.clone());
+                    black_box(tree.run())
                 });
             },
         );
@@ -173,8 +144,7 @@ fn benchmark_branching_factor(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    benchmark_single_threaded,
-    benchmark_concurrent,
+    benchmark_mcts,
     benchmark_tree_depth,
     benchmark_branching_factor
 );

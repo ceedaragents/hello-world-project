@@ -1,10 +1,9 @@
-//! A memory-safe Monte Carlo Tree Search library with concurrency support.
+//! A memory-safe Monte Carlo Tree Search library.
 //!
 //! This library provides a generic implementation of MCTS that can be used
 //! for various game-playing and decision-making applications.
 
 use std::sync::Arc;
-use parking_lot::{RwLock, Mutex};
 use rand::Rng;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -12,12 +11,10 @@ use std::hash::Hash;
 pub mod node;
 pub mod tree;
 pub mod traits;
-pub mod concurrent;
 
 pub use traits::{GameState, Player};
 pub use node::Node;
 pub use tree::MCTSTree;
-pub use concurrent::ConcurrentMCTS;
 
 /// Configuration for MCTS algorithm
 #[derive(Debug, Clone)]
@@ -28,8 +25,6 @@ pub struct MCTSConfig {
     pub max_iterations: usize,
     /// Maximum depth for simulation
     pub max_simulation_depth: usize,
-    /// Number of threads for concurrent execution
-    pub num_threads: usize,
 }
 
 impl Default for MCTSConfig {
@@ -38,7 +33,6 @@ impl Default for MCTSConfig {
             exploration_constant: std::f64::consts::SQRT_2,
             max_iterations: 10000,
             max_simulation_depth: 1000,
-            num_threads: 4,
         }
     }
 }
@@ -66,6 +60,5 @@ mod tests {
         assert_eq!(config.exploration_constant, std::f64::consts::SQRT_2);
         assert_eq!(config.max_iterations, 10000);
         assert_eq!(config.max_simulation_depth, 1000);
-        assert_eq!(config.num_threads, 4);
     }
 }
