@@ -1,0 +1,30 @@
+# Object files
+*.o
+*.obj
+
+# Executables
+test_concurrent_queue
+example
+test_single
+
+# Debug symbols
+*.dSYM/
+*.dSYM
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build directories
+build/
+bin/
+
+# Core dumps
+core
+core.*
+
+# Dependency files
+*.d
