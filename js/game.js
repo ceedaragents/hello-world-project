@@ -61,7 +61,14 @@ const ScrabbleGame = {
         tiles: {},
         score: {},
         draggedTile: null,
-        tileIdCounter: 0
+        tileIdCounter: 0,
+        dictionary: null,
+        currentMove: {
+            tiles: [],
+            words: [],
+            score: 0
+        },
+        validationCache: new Map()
     },
     
     init() {
@@ -73,6 +80,7 @@ const ScrabbleGame = {
         this.createTileRack();
         this.setupEventListeners();
         this.drawInitialTiles();
+        this.loadDictionary();
     },
     
     initializeTileBag() {
@@ -301,6 +309,10 @@ const ScrabbleGame = {
         if (tile.location === 'rack') {
             this.state.playerRack[tile.rackIndex] = null;
             delete tile.rackIndex;
+            
+            if (!this.state.currentMove.tiles.includes(tile)) {
+                this.state.currentMove.tiles.push(tile);
+            }
         } else if (tile.location === 'board') {
             this.state.board[tile.boardRow][tile.boardCol].tile = null;
         }
@@ -339,6 +351,11 @@ const ScrabbleGame = {
             this.state.board[tile.boardRow][tile.boardCol].tile = null;
             delete tile.boardRow;
             delete tile.boardCol;
+            
+            const tileIndex = this.state.currentMove.tiles.indexOf(tile);
+            if (tileIndex > -1) {
+                this.state.currentMove.tiles.splice(tileIndex, 1);
+            }
         } else if (tile.location === 'rack' && tile.rackIndex !== slotIndex) {
             this.state.playerRack[tile.rackIndex] = null;
         }
@@ -467,6 +484,27 @@ const ScrabbleGame = {
         if (shuffleBtn) {
             shuffleBtn.addEventListener('click', () => {
                 this.shuffleRackTiles();
+            });
+        }
+        
+        const validateBtn = document.getElementById('validate-word-btn');
+        if (validateBtn) {
+            validateBtn.addEventListener('click', () => {
+                this.validateCurrentMove();
+            });
+        }
+        
+        const submitBtn = document.getElementById('submit-word-btn');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                this.submitMove();
+            });
+        }
+        
+        const clearBtn = document.getElementById('clear-board-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearCurrentMove();
             });
         }
     },
@@ -610,9 +648,399 @@ const ScrabbleGame = {
         return 0;
     },
     
+    async loadDictionary() {
+        try {
+            this.showLoadingIndicator('Loading dictionary...');
+            
+            const cachedDictionary = await this.loadFromCache();
+            if (cachedDictionary) {
+                this.state.dictionary = cachedDictionary;
+                console.log(`Dictionary loaded from cache: ${this.state.dictionary.size} words`);
+                this.hideLoadingIndicator();
+                return;
+            }
+            
+            const response = await fetch('data/sowpods.txt');
+            if (!response.ok) {
+                throw new Error(`Failed to load dictionary: ${response.status}`);
+            }
+            
+            const text = await response.text();
+            const words = text.trim().split('\n').map(word => word.toUpperCase().trim());
+            this.state.dictionary = new Set(words);
+            
+            await this.saveToCache(words);
+            
+            console.log(`Dictionary loaded: ${this.state.dictionary.size} words`);
+            this.hideLoadingIndicator();
+            this.enableGameControls();
+        } catch (error) {
+            console.error('Failed to load dictionary:', error);
+            this.showError('Failed to load dictionary. Some features may not work.');
+            this.hideLoadingIndicator();
+        }
+    },
+    
+    async loadFromCache() {
+        if (!window.indexedDB) return null;
+        
+        return new Promise((resolve) => {
+            const request = indexedDB.open('ScrabbleDictionary', 1);
+            
+            request.onerror = () => resolve(null);
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('dictionary')) {
+                    db.createObjectStore('dictionary');
+                }
+            };
+            
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction(['dictionary'], 'readonly');
+                const store = transaction.objectStore('dictionary');
+                const getRequest = store.get('sowpods');
+                
+                getRequest.onsuccess = () => {
+                    const data = getRequest.result;
+                    if (data && data.words) {
+                        resolve(new Set(data.words));
+                    } else {
+                        resolve(null);
+                    }
+                };
+                
+                getRequest.onerror = () => resolve(null);
+            };
+        });
+    },
+    
+    async saveToCache(words) {
+        if (!window.indexedDB) return;
+        
+        return new Promise((resolve) => {
+            const request = indexedDB.open('ScrabbleDictionary', 1);
+            
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction(['dictionary'], 'readwrite');
+                const store = transaction.objectStore('dictionary');
+                store.put({ words: words, timestamp: Date.now() }, 'sowpods');
+                resolve();
+            };
+            
+            request.onerror = () => resolve();
+        });
+    },
+    
     validateWord(word) {
-        console.log('Word validation method ready for implementation');
-        return false;
+        if (!this.state.dictionary) {
+            console.warn('Dictionary not loaded');
+            return false;
+        }
+        
+        if (!word || word.length < 2) {
+            return false;
+        }
+        
+        const upperWord = word.toUpperCase().replace(/[^A-Z]/g, '');
+        
+        if (this.state.validationCache.has(upperWord)) {
+            return this.state.validationCache.get(upperWord);
+        }
+        
+        const isValid = this.state.dictionary.has(upperWord);
+        this.state.validationCache.set(upperWord, isValid);
+        
+        return isValid;
+    },
+    
+    findWordsOnBoard() {
+        const words = [];
+        const currentMoveTiles = this.state.currentMove.tiles;
+        
+        if (currentMoveTiles.length === 0) {
+            return words;
+        }
+        
+        const horizontalWord = this.findHorizontalWord(currentMoveTiles[0]);
+        if (horizontalWord && horizontalWord.length > 1) {
+            words.push(horizontalWord);
+        }
+        
+        const verticalWord = this.findVerticalWord(currentMoveTiles[0]);
+        if (verticalWord && verticalWord.length > 1) {
+            words.push(verticalWord);
+        }
+        
+        currentMoveTiles.forEach(tile => {
+            const perpHorizontal = this.findHorizontalWord(tile);
+            if (perpHorizontal && perpHorizontal.length > 1 && 
+                !words.some(w => this.wordsAreEqual(w, perpHorizontal))) {
+                words.push(perpHorizontal);
+            }
+            
+            const perpVertical = this.findVerticalWord(tile);
+            if (perpVertical && perpVertical.length > 1 && 
+                !words.some(w => this.wordsAreEqual(w, perpVertical))) {
+                words.push(perpVertical);
+            }
+        });
+        
+        return words;
+    },
+    
+    findHorizontalWord(tile) {
+        const row = tile.boardRow;
+        let startCol = tile.boardCol;
+        let endCol = tile.boardCol;
+        
+        while (startCol > 0 && this.getTileAtPosition(row, startCol - 1)) {
+            startCol--;
+        }
+        
+        while (endCol < this.config.boardSize - 1 && this.getTileAtPosition(row, endCol + 1)) {
+            endCol++;
+        }
+        
+        const word = {
+            tiles: [],
+            text: '',
+            direction: 'horizontal',
+            startRow: row,
+            startCol: startCol,
+            endRow: row,
+            endCol: endCol
+        };
+        
+        for (let col = startCol; col <= endCol; col++) {
+            const tileAtPos = this.getTileAtPosition(row, col);
+            if (tileAtPos) {
+                word.tiles.push(tileAtPos);
+                word.text += tileAtPos.letter === 'BLANK' ? '_' : tileAtPos.letter;
+            }
+        }
+        
+        return word;
+    },
+    
+    findVerticalWord(tile) {
+        const col = tile.boardCol;
+        let startRow = tile.boardRow;
+        let endRow = tile.boardRow;
+        
+        while (startRow > 0 && this.getTileAtPosition(startRow - 1, col)) {
+            startRow--;
+        }
+        
+        while (endRow < this.config.boardSize - 1 && this.getTileAtPosition(endRow + 1, col)) {
+            endRow++;
+        }
+        
+        const word = {
+            tiles: [],
+            text: '',
+            direction: 'vertical',
+            startRow: startRow,
+            startCol: col,
+            endRow: endRow,
+            endCol: col
+        };
+        
+        for (let row = startRow; row <= endRow; row++) {
+            const tileAtPos = this.getTileAtPosition(row, col);
+            if (tileAtPos) {
+                word.tiles.push(tileAtPos);
+                word.text += tileAtPos.letter === 'BLANK' ? '_' : tileAtPos.letter;
+            }
+        }
+        
+        return word;
+    },
+    
+    wordsAreEqual(word1, word2) {
+        return word1.startRow === word2.startRow && 
+               word1.startCol === word2.startCol &&
+               word1.endRow === word2.endRow &&
+               word1.endCol === word2.endCol;
+    },
+    
+    validateCurrentMove() {
+        const words = this.findWordsOnBoard();
+        
+        if (words.length === 0) {
+            this.showValidationFeedback('No valid words formed', false);
+            return false;
+        }
+        
+        const invalidWords = [];
+        const validWords = [];
+        
+        for (const word of words) {
+            if (this.validateWord(word.text)) {
+                validWords.push(word);
+            } else {
+                invalidWords.push(word);
+            }
+        }
+        
+        if (invalidWords.length > 0) {
+            const invalidTexts = invalidWords.map(w => w.text).join(', ');
+            this.showValidationFeedback(`Invalid words: ${invalidTexts}`, false);
+            this.highlightInvalidWords(invalidWords);
+            return false;
+        }
+        
+        const validTexts = validWords.map(w => w.text).join(', ');
+        this.showValidationFeedback(`Valid words: ${validTexts}`, true);
+        this.highlightValidWords(validWords);
+        
+        this.state.currentMove.words = validWords;
+        return true;
+    },
+    
+    showValidationFeedback(message, isValid) {
+        const existingFeedback = document.querySelector('.validation-feedback');
+        if (existingFeedback) {
+            existingFeedback.remove();
+        }
+        
+        const feedback = document.createElement('div');
+        feedback.className = `validation-feedback ${isValid ? 'valid' : 'invalid'}`;
+        feedback.textContent = message;
+        
+        const container = document.querySelector('.game-controls') || document.body;
+        container.appendChild(feedback);
+        
+        setTimeout(() => {
+            feedback.classList.add('fade-out');
+            setTimeout(() => feedback.remove(), 300);
+        }, 3000);
+    },
+    
+    highlightValidWords(words) {
+        this.clearWordHighlights();
+        
+        words.forEach(word => {
+            word.tiles.forEach(tile => {
+                const square = document.querySelector(
+                    `.board-square[data-row="${tile.boardRow}"][data-col="${tile.boardCol}"]`
+                );
+                if (square) {
+                    square.classList.add('valid-word');
+                }
+            });
+        });
+    },
+    
+    highlightInvalidWords(words) {
+        this.clearWordHighlights();
+        
+        words.forEach(word => {
+            word.tiles.forEach(tile => {
+                const square = document.querySelector(
+                    `.board-square[data-row="${tile.boardRow}"][data-col="${tile.boardCol}"]`
+                );
+                if (square) {
+                    square.classList.add('invalid-word');
+                }
+            });
+        });
+    },
+    
+    clearWordHighlights() {
+        document.querySelectorAll('.valid-word, .invalid-word').forEach(square => {
+            square.classList.remove('valid-word', 'invalid-word');
+        });
+    },
+    
+    showLoadingIndicator(message = 'Loading...') {
+        const existingLoader = document.querySelector('.loading-indicator');
+        if (existingLoader) {
+            existingLoader.remove();
+        }
+        
+        const loader = document.createElement('div');
+        loader.className = 'loading-indicator';
+        loader.innerHTML = `
+            <div class="loader-spinner"></div>
+            <div class="loader-message">${message}</div>
+        `;
+        
+        document.body.appendChild(loader);
+    },
+    
+    hideLoadingIndicator() {
+        const loader = document.querySelector('.loading-indicator');
+        if (loader) {
+            loader.remove();
+        }
+    },
+    
+    showError(message) {
+        const error = document.createElement('div');
+        error.className = 'error-message';
+        error.textContent = message;
+        
+        document.body.appendChild(error);
+        
+        setTimeout(() => {
+            error.classList.add('fade-out');
+            setTimeout(() => error.remove(), 300);
+        }, 5000);
+    },
+    
+    enableGameControls() {
+        const submitBtn = document.getElementById('submit-word-btn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
+    },
+    
+    submitMove() {
+        if (!this.validateCurrentMove()) {
+            this.showValidationFeedback('Please fix invalid words before submitting', false);
+            return;
+        }
+        
+        if (this.state.currentMove.tiles.length === 0) {
+            this.showValidationFeedback('No tiles placed on board', false);
+            return;
+        }
+        
+        const score = this.calculateScore();
+        this.showValidationFeedback(`Move submitted! Score: ${score} points`, true);
+        
+        this.state.currentMove.tiles = [];
+        this.state.currentMove.words = [];
+        this.state.currentMove.score = 0;
+        
+        this.refillRack();
+        this.clearWordHighlights();
+    },
+    
+    clearCurrentMove() {
+        const tilesToReturn = [...this.state.currentMove.tiles];
+        
+        tilesToReturn.forEach(tile => {
+            for (let i = 0; i < this.config.tilesPerPlayer; i++) {
+                if (this.state.playerRack[i] === null) {
+                    const slot = document.querySelector(`.tile-slot[data-slot-index="${i}"]`);
+                    if (slot) {
+                        this.returnTileToRack(tile, slot);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        this.state.currentMove.tiles = [];
+        this.state.currentMove.words = [];
+        this.state.currentMove.score = 0;
+        
+        this.clearWordHighlights();
+        this.showValidationFeedback('Board cleared', true);
     }
 };
 
