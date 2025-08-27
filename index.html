@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive multiplayer HTML5 Scrabble game">
+    <title>Scrabble Game</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1 class="game-title">Scrabble Game</h1>
+        </header>
+        
+        <section class="welcome-section">
+            <p class="welcome-message">
+                Welcome to Scrabble! Get ready to challenge your vocabulary and strategic thinking skills.
+            </p>
+        </section>
+        
+        <div class="game-area">
+            <div class="left-sidebar">
+                <div class="score-panel">
+                    <h3>Score</h3>
+                    <div class="score-display">
+                        <span class="score-label">Player 1:</span>
+                        <span id="current-score" class="score-value">0</span>
+                    </div>
+                    <div id="score-preview" class="score-preview"></div>
+                </div>
+                
+                <div class="score-history-panel">
+                    <h3>Recent Moves</h3>
+                    <div id="score-history" class="score-history"></div>
+                </div>
+            </div>
+            
+            <div id="game-container" class="game-container">
+                <!-- Game board and components will be dynamically loaded here -->
+                <p class="placeholder-text">Game board will appear here</p>
+            </div>
+            
+            <div class="right-sidebar">
+                <div class="game-info">
+                    <h3>Game Info</h3>
+                    <div class="tiles-remaining">
+                        <span>Tiles in bag:</span>
+                        <span id="tiles-count">100</span>
+                    </div>
+                    <div class="multiplier-legend">
+                        <h4>Multipliers</h4>
+                        <div class="legend-item">
+                            <span class="legend-color triple-word"></span>
+                            <span>3W - Triple Word</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color double-word"></span>
+                            <span>2W - Double Word</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color triple-letter"></span>
+                            <span>3L - Triple Letter</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color double-letter"></span>
+                            <span>2L - Double Letter</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color center"></span>
+                            <span>★ - Center (2W)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tile-rack-container" class="tile-rack-container">
+            <div class="tile-rack-wrapper">
+                <h3 class="rack-title">Your Tiles</h3>
+                <div id="tile-rack" class="tile-rack">
+                    <!-- Tiles will be dynamically loaded here -->
+                </div>
+                <div class="game-controls">
+                    <button id="draw-tiles-btn" class="game-btn">Draw Tiles</button>
+                    <button id="shuffle-tiles-btn" class="game-btn">Shuffle</button>
+                    <button id="validate-word-btn" class="game-btn">Check Words</button>
+                    <button id="submit-word-btn" class="game-btn" disabled>Submit Move</button>
+                    <button id="clear-board-btn" class="game-btn">Clear Board</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="js/game.js"></script>
+</body>
+</html>
