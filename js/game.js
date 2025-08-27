@@ -75,12 +75,16 @@ const ScrabbleGame = {
         console.log('Scrabble game initialized');
         
         this.state.isInitialized = true;
+        this.state.currentPlayer = 1; // Initialize with Player 1
+        this.state.scores = { 1: 0 }; // Initialize score tracking
         this.createBoard();
         this.initializeTileBag();
         this.createTileRack();
         this.setupEventListeners();
         this.drawInitialTiles();
         this.loadDictionary();
+        this.updateTileCount();
+        this.updatePlayerScoreDisplay();
     },
     
     initializeTileBag() {
@@ -330,6 +334,9 @@ const ScrabbleGame = {
             square.classList.add('occupied');
         }
         
+        // Show tile points animation when placed
+        this.showTilePoints(tile, { row, col });
+        
         console.log(`Placed ${tile.letter} at ${this.getCoordinateString(row, col)}`);
         return true;
     },
@@ -428,6 +435,7 @@ const ScrabbleGame = {
             }
         }
         console.log(`Drew ${tilesDrawn} new tiles. ${this.state.tileBag.length} tiles remaining in bag.`);
+        this.updateTileCount();
     },
     
     setupEventListeners() {
@@ -643,9 +651,327 @@ const ScrabbleGame = {
         console.log('End turn method ready for implementation');
     },
     
-    calculateScore(word) {
-        console.log('Score calculation method ready for implementation');
-        return 0;
+    calculateMoveScore() {
+        const moveData = {
+            words: [],
+            totalScore: 0,
+            baseScore: 0,
+            multipliers: [],
+            bingoBonus: false
+        };
+
+        // Get all words formed in this move
+        const wordsFormed = this.state.currentMove.words;
+        if (!wordsFormed || wordsFormed.length === 0) {
+            return moveData;
+        }
+
+        // Track which tiles are newly placed
+        const newTilePositions = new Set();
+        this.state.currentMove.tiles.forEach(tile => {
+            newTilePositions.add(`${tile.boardRow},${tile.boardCol}`);
+        });
+
+        // Calculate score for each word
+        wordsFormed.forEach(wordObj => {
+            const wordScore = this.calculateWordScore(wordObj, newTilePositions);
+            moveData.words.push(wordScore);
+            moveData.totalScore += wordScore.total;
+        });
+
+        // Check for bingo bonus (using all 7 tiles)
+        if (this.checkBingoBonus()) {
+            moveData.bingoBonus = true;
+            moveData.totalScore += 50;
+        }
+
+        moveData.baseScore = moveData.words.reduce((sum, w) => sum + w.baseScore, 0);
+
+        return moveData;
+    },
+
+    calculateWordScore(wordObj, newTilePositions) {
+        let baseScore = 0;
+        let wordMultiplier = 1;
+        const letterScores = [];
+        const multipliers = [];
+
+        // Process each tile in the word
+        wordObj.tiles.forEach(tile => {
+            const position = `${tile.boardRow},${tile.boardCol}`;
+            const isNewTile = newTilePositions.has(position);
+            
+            let letterValue = this.config.tilePoints[tile.letter] || 0;
+            let letterMultiplier = 1;
+            
+            // Only apply multipliers to newly placed tiles
+            if (isNewTile) {
+                const squareType = this.getSquareType(tile.boardRow, tile.boardCol);
+                
+                switch(squareType) {
+                    case 'double-letter':
+                        letterMultiplier = 2;
+                        multipliers.push({ type: 'DL', position: [tile.boardRow, tile.boardCol] });
+                        break;
+                    case 'triple-letter':
+                        letterMultiplier = 3;
+                        multipliers.push({ type: 'TL', position: [tile.boardRow, tile.boardCol] });
+                        break;
+                    case 'double-word':
+                    case 'center': // Center is also a double word score
+                        wordMultiplier *= 2;
+                        multipliers.push({ type: 'DW', position: [tile.boardRow, tile.boardCol] });
+                        break;
+                    case 'triple-word':
+                        wordMultiplier *= 3;
+                        multipliers.push({ type: 'TW', position: [tile.boardRow, tile.boardCol] });
+                        break;
+                }
+            }
+            
+            const letterScore = letterValue * letterMultiplier;
+            baseScore += letterScore;
+            
+            letterScores.push({
+                letter: tile.letter,
+                value: letterValue,
+                multiplier: letterMultiplier,
+                score: letterScore,
+                isNew: isNewTile,
+                position: [tile.boardRow, tile.boardCol]
+            });
+        });
+
+        const wordText = wordObj.tiles.map(t => t.letter).join('');
+        
+        return {
+            word: wordText,
+            baseScore: baseScore,
+            wordMultiplier: wordMultiplier,
+            total: baseScore * wordMultiplier,
+            letterScores: letterScores,
+            multipliers: multipliers,
+            direction: wordObj.direction,
+            startPosition: [wordObj.startRow, wordObj.startCol]
+        };
+    },
+
+    getLetterScore(tile, position) {
+        const baseValue = this.config.tilePoints[tile.letter] || 0;
+        const squareType = this.getSquareType(position.row, position.col);
+        
+        let multiplier = 1;
+        if (squareType === 'double-letter') multiplier = 2;
+        else if (squareType === 'triple-letter') multiplier = 3;
+        
+        return {
+            base: baseValue,
+            multiplier: multiplier,
+            total: baseValue * multiplier,
+            squareType: squareType
+        };
+    },
+
+    checkBingoBonus() {
+        // Check if all 7 tiles were used in this move
+        return this.state.currentMove.tiles.length === 7;
+    },
+
+    updateScoreDisplay(moveData) {
+        // Update the score preview
+        const scorePreview = document.getElementById('score-preview');
+        if (scorePreview) {
+            if (moveData && moveData.totalScore > 0) {
+                let html = `<div class="score-preview-content">`;
+                html += `<div class="score-total">+${moveData.totalScore} points</div>`;
+                
+                // Show word breakdown
+                if (moveData.words && moveData.words.length > 0) {
+                    html += `<div class="score-breakdown">`;
+                    moveData.words.forEach(word => {
+                        html += `<div class="word-score">`;
+                        html += `<span class="word-text">${word.word}</span>`;
+                        html += `<span class="word-points">${word.baseScore}`;
+                        if (word.wordMultiplier > 1) {
+                            html += ` × ${word.wordMultiplier}`;
+                        }
+                        html += ` = ${word.total}</span>`;
+                        html += `</div>`;
+                    });
+                    
+                    if (moveData.bingoBonus) {
+                        html += `<div class="bingo-bonus">Bingo! +50</div>`;
+                    }
+                    
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+                scorePreview.innerHTML = html;
+                scorePreview.style.display = 'block';
+            } else {
+                scorePreview.style.display = 'none';
+            }
+        }
+
+        // Update current player score
+        this.updatePlayerScoreDisplay();
+    },
+
+    updatePlayerScoreDisplay() {
+        const scoreDisplay = document.getElementById('current-score');
+        if (scoreDisplay && this.state.currentPlayer) {
+            const playerScore = this.state.scores[this.state.currentPlayer] || 0;
+            scoreDisplay.textContent = playerScore;
+        }
+    },
+
+    commitScore(moveData) {
+        if (!this.state.currentPlayer || !moveData) return;
+        
+        // Initialize scores if needed
+        if (!this.state.scores) {
+            this.state.scores = {};
+        }
+        
+        if (!this.state.scores[this.state.currentPlayer]) {
+            this.state.scores[this.state.currentPlayer] = 0;
+        }
+        
+        // Add score to player total
+        this.state.scores[this.state.currentPlayer] += moveData.totalScore;
+        
+        // Add to score history
+        this.addToScoreHistory(moveData);
+        
+        // Update display
+        this.updatePlayerScoreDisplay();
+        
+        // Show score animation
+        this.showScoreAnimation(moveData.totalScore);
+        
+        console.log(`Player ${this.state.currentPlayer} scored ${moveData.totalScore} points. Total: ${this.state.scores[this.state.currentPlayer]}`);
+    },
+
+    addToScoreHistory(moveData) {
+        if (!this.state.scoreHistory) {
+            this.state.scoreHistory = [];
+        }
+        
+        const historyEntry = {
+            player: this.state.currentPlayer,
+            timestamp: new Date().toISOString(),
+            score: moveData.totalScore,
+            words: moveData.words.map(w => w.word),
+            bingoBonus: moveData.bingoBonus,
+            details: moveData
+        };
+        
+        this.state.scoreHistory.push(historyEntry);
+        
+        // Keep only last 10 entries for display
+        if (this.state.scoreHistory.length > 10) {
+            this.state.scoreHistory = this.state.scoreHistory.slice(-10);
+        }
+        
+        this.updateScoreHistoryDisplay();
+    },
+
+    updateScoreHistoryDisplay() {
+        const historyContainer = document.getElementById('score-history');
+        if (!historyContainer || !this.state.scoreHistory) return;
+        
+        const recentHistory = this.state.scoreHistory.slice(-5).reverse();
+        
+        let html = '<div class="score-history-list">';
+        recentHistory.forEach(entry => {
+            html += `<div class="history-entry">`;
+            html += `<div class="history-player">Player ${entry.player}</div>`;
+            html += `<div class="history-words">${entry.words.join(', ')}</div>`;
+            html += `<div class="history-score">+${entry.score}`;
+            if (entry.bingoBonus) {
+                html += ' (Bingo!)';
+            }
+            html += `</div>`;
+            html += `</div>`;
+        });
+        html += '</div>';
+        
+        historyContainer.innerHTML = html;
+    },
+
+    showScoreAnimation(points) {
+        // Create floating score element
+        const scoreFloat = document.createElement('div');
+        scoreFloat.className = 'score-float';
+        scoreFloat.textContent = `+${points}`;
+        
+        // Position near the board center
+        const board = document.getElementById('game-board');
+        const rect = board.getBoundingClientRect();
+        scoreFloat.style.left = `${rect.left + rect.width / 2}px`;
+        scoreFloat.style.top = `${rect.top + rect.height / 2}px`;
+        
+        document.body.appendChild(scoreFloat);
+        
+        // Animate and remove
+        setTimeout(() => {
+            scoreFloat.classList.add('animate');
+        }, 10);
+        
+        setTimeout(() => {
+            scoreFloat.remove();
+        }, 2000);
+    },
+
+    highlightMultipliers(tiles) {
+        // Highlight special squares being used
+        tiles.forEach(tile => {
+            const square = document.querySelector(`[data-row="${tile.boardRow}"][data-col="${tile.boardCol}"]`);
+            if (square) {
+                const squareType = this.getSquareType(tile.boardRow, tile.boardCol);
+                if (squareType !== 'normal') {
+                    square.classList.add('multiplier-active');
+                    
+                    // Remove highlight after animation
+                    setTimeout(() => {
+                        square.classList.remove('multiplier-active');
+                    }, 1500);
+                }
+            }
+        });
+    },
+
+    showTilePoints(tile, position) {
+        // Show point value floating up when tile is placed
+        const square = document.querySelector(`[data-row="${position.row}"][data-col="${position.col}"]`);
+        if (!square) return;
+        
+        const points = this.config.tilePoints[tile.letter] || 0;
+        const pointsDisplay = document.createElement('div');
+        pointsDisplay.className = 'tile-points-float';
+        pointsDisplay.textContent = `+${points}`;
+        
+        const rect = square.getBoundingClientRect();
+        pointsDisplay.style.left = `${rect.left + rect.width / 2}px`;
+        pointsDisplay.style.top = `${rect.top}px`;
+        
+        document.body.appendChild(pointsDisplay);
+        
+        setTimeout(() => {
+            pointsDisplay.classList.add('animate');
+        }, 10);
+        
+        setTimeout(() => {
+            pointsDisplay.remove();
+        }, 1000);
+    },
+    
+    updateTileCount() {
+        const tileCountElement = document.getElementById('tiles-count');
+        if (tileCountElement) {
+            tileCountElement.textContent = this.state.tileBag.length;
+        }
     },
     
     async loadDictionary() {
@@ -871,6 +1197,7 @@ const ScrabbleGame = {
         
         if (words.length === 0) {
             this.showValidationFeedback('No valid words formed', false);
+            this.updateScoreDisplay(null);
             return false;
         }
         
@@ -889,6 +1216,7 @@ const ScrabbleGame = {
             const invalidTexts = invalidWords.map(w => w.text).join(', ');
             this.showValidationFeedback(`Invalid words: ${invalidTexts}`, false);
             this.highlightInvalidWords(invalidWords);
+            this.updateScoreDisplay(null);
             return false;
         }
         
@@ -897,6 +1225,11 @@ const ScrabbleGame = {
         this.highlightValidWords(validWords);
         
         this.state.currentMove.words = validWords;
+        
+        // Calculate and display score preview
+        const moveData = this.calculateMoveScore();
+        this.updateScoreDisplay(moveData);
+        
         return true;
     },
     
@@ -1009,15 +1342,28 @@ const ScrabbleGame = {
             return;
         }
         
-        const score = this.calculateScore();
-        this.showValidationFeedback(`Move submitted! Score: ${score} points`, true);
+        // Calculate and commit the score
+        const moveData = this.calculateMoveScore();
+        this.commitScore(moveData);
         
+        // Show feedback with proper scoring details
+        let message = `Move submitted! Score: ${moveData.totalScore} points`;
+        if (moveData.bingoBonus) {
+            message += ' (Bingo!)';
+        }
+        this.showValidationFeedback(message, true);
+        
+        // Highlight multipliers used
+        this.highlightMultipliers(this.state.currentMove.tiles);
+        
+        // Clear the move state
         this.state.currentMove.tiles = [];
         this.state.currentMove.words = [];
         this.state.currentMove.score = 0;
         
         this.refillRack();
         this.clearWordHighlights();
+        this.updateScoreDisplay(null); // Clear score preview
     },
     
     clearCurrentMove() {

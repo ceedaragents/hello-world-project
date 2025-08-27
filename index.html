@@ -19,9 +19,60 @@
             </p>
         </section>
         
-        <div id="game-container" class="game-container">
-            <!-- Game board and components will be dynamically loaded here -->
-            <p class="placeholder-text">Game board will appear here</p>
+        <div class="game-area">
+            <div class="left-sidebar">
+                <div class="score-panel">
+                    <h3>Score</h3>
+                    <div class="score-display">
+                        <span class="score-label">Player 1:</span>
+                        <span id="current-score" class="score-value">0</span>
+                    </div>
+                    <div id="score-preview" class="score-preview"></div>
+                </div>
+                
+                <div class="score-history-panel">
+                    <h3>Recent Moves</h3>
+                    <div id="score-history" class="score-history"></div>
+                </div>
+            </div>
+            
+            <div id="game-container" class="game-container">
+                <!-- Game board and components will be dynamically loaded here -->
+                <p class="placeholder-text">Game board will appear here</p>
+            </div>
+            
+            <div class="right-sidebar">
+                <div class="game-info">
+                    <h3>Game Info</h3>
+                    <div class="tiles-remaining">
+                        <span>Tiles in bag:</span>
+                        <span id="tiles-count">100</span>
+                    </div>
+                    <div class="multiplier-legend">
+                        <h4>Multipliers</h4>
+                        <div class="legend-item">
+                            <span class="legend-color triple-word"></span>
+                            <span>3W - Triple Word</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color double-word"></span>
+                            <span>2W - Double Word</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color triple-letter"></span>
+                            <span>3L - Triple Letter</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color double-letter"></span>
+                            <span>2L - Double Letter</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color center"></span>
+                            <span>★ - Center (2W)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div id="tile-rack-container" class="tile-rack-container">
