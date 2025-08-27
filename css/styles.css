@@ -258,6 +258,175 @@ header {
     }
 }
 
+.tile-rack-container {
+    margin-top: 30px;
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.tile-rack-wrapper {
+    text-align: center;
+}
+
+.rack-title {
+    color: #5a67d8;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.tile-rack {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    min-height: 70px;
+    background: linear-gradient(135deg, #8B7355 0%, #6B5D54 100%);
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+}
+
+.tile-slot {
+    width: 55px;
+    height: 55px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tile {
+    width: 50px;
+    height: 50px;
+    background: #FFF8DC;
+    border: 2px solid #D2B48C;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: grab;
+    font-weight: bold;
+    font-size: 24px;
+    color: #2C3E50;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), 
+                0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    user-select: none;
+}
+
+.tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3), 
+                0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tile.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: scale(1.1);
+    z-index: 1000;
+}
+
+.tile.dragging-active {
+    opacity: 0.7;
+    cursor: grabbing;
+    transform: scale(1.05);
+}
+
+.tile-letter {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.tile-points {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #5C4033;
+}
+
+.tile.blank .tile-letter {
+    color: transparent;
+}
+
+.tile.blank .tile-points {
+    display: none;
+}
+
+.board-square.occupied {
+    background-color: #E8DCC0;
+}
+
+.board-square.valid-drop {
+    background-color: #90EE90 !important;
+    animation: pulse 0.5s ease-in-out infinite;
+}
+
+.board-square.invalid-drop {
+    background-color: #FFB6C1 !important;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.game-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.game-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.game-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.game-btn:disabled {
+    background: #CBD5E0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.board-square .tile {
+    width: 90%;
+    height: 90%;
+    margin: auto;
+}
+
 @media (max-width: 480px) {
     .game-title {
         font-size: 1.5rem;
@@ -317,5 +486,39 @@ header {
     
     .board-square.center .square-label {
         font-size: 0.9em;
+    }
+    
+    .tile-rack {
+        gap: 5px;
+        padding: 10px;
+    }
+    
+    .tile-slot {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .tile {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+    
+    .tile-letter {
+        font-size: 18px;
+    }
+    
+    .tile-points {
+        font-size: 8px;
+    }
+    
+    .game-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .game-btn {
+        font-size: 0.9rem;
+        padding: 8px 16px;
     }
 }
