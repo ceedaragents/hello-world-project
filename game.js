@@ -1,3 +1,170 @@
+class Bird {
+    constructor(x, y) {
+        // Position and size properties
+        this.x = x;
+        this.y = y;
+        this.width = 30;
+        this.height = 25;
+        
+        // Physics properties
+        this.velocity = 0;
+        this.gravity = 0.0008; // Gravity acceleration per millisecond²
+        this.flapStrength = -0.45; // Upward velocity on flap
+        this.maxFallSpeed = 0.8; // Terminal velocity
+        this.maxRiseSpeed = -0.6; // Maximum upward velocity
+        
+        // Visual properties
+        this.rotation = 0;
+        this.maxRotation = Math.PI / 4; // 45 degrees
+        this.rotationSpeed = 0.003; // Rotation speed per millisecond
+        
+        // Animation properties
+        this.flapAnimation = 0;
+        this.flapSpeed = 0.01;
+        this.wingOffset = 0;
+    }
+    
+    update(deltaTime) {
+        // Apply gravity
+        this.velocity += this.gravity * deltaTime;
+        
+        // Clamp velocity to max speeds
+        this.velocity = Math.max(this.maxRiseSpeed, Math.min(this.maxFallSpeed, this.velocity));
+        
+        // Update position based on velocity
+        this.y += this.velocity * deltaTime;
+        
+        // Update rotation based on velocity
+        if (this.velocity > 0) {
+            // Falling - rotate down
+            this.rotation = Math.min(this.maxRotation, this.rotation + this.rotationSpeed * deltaTime);
+        } else {
+            // Rising - rotate up
+            this.rotation = Math.max(-this.maxRotation, this.rotation - this.rotationSpeed * deltaTime * 2);
+        }
+        
+        // Update wing flap animation
+        this.flapAnimation += this.flapSpeed * deltaTime;
+        this.wingOffset = Math.sin(this.flapAnimation) * 3;
+    }
+    
+    flap() {
+        this.velocity = this.flapStrength;
+        // Reset rotation for immediate visual feedback
+        this.rotation = -this.maxRotation * 0.7;
+        // Reset flap animation for wing effect
+        this.flapAnimation = 0;
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        // Translate to bird center for rotation
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.rotate(this.rotation);
+        
+        // Bird body (main circle)
+        ctx.fillStyle = '#FFD700'; // Golden yellow
+        ctx.strokeStyle = '#FFA500'; // Orange outline
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Bird beak
+        ctx.fillStyle = '#FFA500';
+        ctx.beginPath();
+        ctx.moveTo(this.width / 2 - 5, -3);
+        ctx.lineTo(this.width / 2 + 8, 0);
+        ctx.lineTo(this.width / 2 - 5, 3);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bird eye
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(5, -5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye highlight
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(6, -6, 1, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Wings with animation
+        ctx.fillStyle = '#FFA500';
+        ctx.strokeStyle = '#FF8C00';
+        ctx.lineWidth = 1;
+        
+        // Wing animation offset
+        const wingY = this.wingOffset;
+        
+        // Left wing
+        ctx.beginPath();
+        ctx.ellipse(-8, wingY, 12, 8, -Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Right wing (smaller, partially hidden)
+        ctx.beginPath();
+        ctx.ellipse(-5, wingY + 2, 8, 6, Math.PI / 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Tail feathers
+        ctx.fillStyle = '#FF8C00';
+        ctx.beginPath();
+        ctx.ellipse(-this.width / 2 + 2, 2, 8, 4, Math.PI / 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    // Collision detection methods
+    getBounds() {
+        return {
+            left: this.x,
+            right: this.x + this.width,
+            top: this.y,
+            bottom: this.y + this.height,
+            centerX: this.x + this.width / 2,
+            centerY: this.y + this.height / 2
+        };
+    }
+    
+    checkBoundaryCollision(canvasWidth, canvasHeight) {
+        const bounds = this.getBounds();
+        
+        // Check top boundary
+        if (bounds.top <= 0) {
+            this.y = 0;
+            this.velocity = Math.max(0, this.velocity); // Stop upward movement
+            return 'top';
+        }
+        
+        // Check bottom boundary
+        if (bounds.bottom >= canvasHeight) {
+            this.y = canvasHeight - this.height;
+            this.velocity = 0;
+            return 'bottom';
+        }
+        
+        return null;
+    }
+    
+    reset(x, y) {
+        this.x = x;
+        this.y = y;
+        this.velocity = 0;
+        this.rotation = 0;
+        this.flapAnimation = 0;
+        this.wingOffset = 0;
+    }
+}
+
 class FlappyBirdGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -17,6 +184,9 @@ class FlappyBirdGame {
         this.frameCount = 0;
         this.fpsCounter = 0;
         this.fpsLastTime = 0;
+        
+        // Initialize bird
+        this.bird = new Bird(this.canvas.width / 4, this.canvas.height / 2);
         
         this.init();
     }
@@ -46,6 +216,7 @@ class FlappyBirdGame {
                 this.startGame();
                 break;
             case this.GAME_STATES.PLAYING:
+                this.bird.flap();
                 break;
             case this.GAME_STATES.GAMEOVER:
                 this.resetGame();
@@ -61,11 +232,23 @@ class FlappyBirdGame {
     resetGame() {
         this.gameState = this.GAME_STATES.READY;
         this.score = 0;
+        // Reset bird position and physics
+        this.bird.reset(this.canvas.width / 4, this.canvas.height / 2);
         this.updateUI();
     }
     
     update(deltaTime) {
         if (this.gameState === this.GAME_STATES.PLAYING) {
+            // Update bird physics
+            this.bird.update(deltaTime);
+            
+            // Check boundary collisions
+            const collision = this.bird.checkBoundaryCollision(this.canvas.width, this.canvas.height);
+            if (collision === 'bottom') {
+                // Game over when bird hits bottom
+                this.gameState = this.GAME_STATES.GAMEOVER;
+                this.updateUI();
+            }
         }
     }
     
@@ -133,13 +316,19 @@ class FlappyBirdGame {
     }
     
     renderReadyState() {
+        // Render the bird in ready state
+        this.bird.render(this.ctx);
+        
         this.drawText('Press SPACE to Start', this.canvas.width / 2, this.canvas.height / 2, '24px Arial', '#FFFFFF', 'center');
         this.drawText('Click canvas or press SPACE to play', this.canvas.width / 2, this.canvas.height / 2 + 40, '16px Arial', '#FFFFFF', 'center');
     }
     
     renderPlayingState() {
-        this.drawText('Game Running!', this.canvas.width / 2, 50, '20px Arial', '#FFFFFF', 'center');
-        this.drawText('Press SPACE to flap', this.canvas.width / 2, this.canvas.height - 50, '16px Arial', '#FFFFFF', 'center');
+        // Render the bird
+        this.bird.render(this.ctx);
+        
+        // Optional UI text (can be removed for cleaner gameplay)
+        this.drawText('Press SPACE to flap', this.canvas.width / 2, this.canvas.height - 30, '14px Arial', '#FFFFFF', 'center');
     }
     
     renderGameOverState() {
