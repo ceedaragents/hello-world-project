@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #gameCanvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            background: #87CEEB;
+            display: block;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            font-size: 1.8em;
+        }
+
+        @media (max-width: 400px) {
+            .game-container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            #gameCanvas {
+                width: 280px;
+                height: 420px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Flappy Bird</h1>
+        <canvas id="gameCanvas" width="320" height="480"></canvas>
+    </div>
+</body>
+</html>
