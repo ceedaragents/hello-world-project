@@ -1,0 +1,124 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #87CEEB 0%, #98FB98 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.game-container {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+h1 {
+    color: #333;
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    font-weight: bold;
+}
+
+#gameCanvas {
+    border: 3px solid #333;
+    border-radius: 10px;
+    background: #70C5CE;
+    display: block;
+    margin: 0 auto 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+#score {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #333;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+#gameState {
+    font-size: 1.2em;
+    color: #333;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Score pulse animation when score increases */
+@keyframes scorePulse {
+    0% { transform: scale(1); color: #333; }
+    50% { transform: scale(1.2); color: #FFD700; text-shadow: 2px 2px 8px rgba(255, 215, 0, 0.6); }
+    100% { transform: scale(1); color: #333; }
+}
+
+.score-animate {
+    animation: scorePulse 0.3s ease-out;
+}
+
+/* Game over shake animation for UI elements */
+@keyframes gameOverShake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+.game-over-shake {
+    animation: gameOverShake 0.5s ease-in-out;
+}
+
+/* Canvas glow effect for special moments */
+@keyframes canvasGlow {
+    0% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+    50% { box-shadow: 0 4px 30px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3); }
+    100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+}
+
+.canvas-glow {
+    animation: canvasGlow 0.6s ease-in-out;
+}
+
+@media (max-width: 600px) {
+    .game-container {
+        margin: 10px;
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 2em;
+        margin-bottom: 15px;
+    }
+    
+    #gameCanvas {
+        width: 100%;
+        max-width: 480px;
+        height: auto;
+    }
+    
+    .game-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    #score, #gameState {
+        font-size: 1.2em;
+    }
+}
