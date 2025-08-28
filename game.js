@@ -285,6 +285,271 @@ class Pipe {
     }
 }
 
+class SoundEngine {
+    constructor() {
+        this.audioContext = null;
+        this.masterVolume = 0.3;
+        this.sounds = {};
+        this.init();
+    }
+    
+    async init() {
+        try {
+            // Create AudioContext on first user interaction to comply with browser policies
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create master volume control
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.gain.value = this.masterVolume;
+            this.masterGain.connect(this.audioContext.destination);
+            
+            this.createSounds();
+        } catch (error) {
+            console.warn('Web Audio API not supported:', error);
+        }
+    }
+    
+    createSounds() {
+        // Bird flap sound - quick chirp
+        this.sounds.flap = () => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            // Quick frequency sweep from high to mid
+            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(400, this.audioContext.currentTime + 0.1);
+            
+            // Quick volume envelope
+            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.1);
+            
+            oscillator.type = 'triangle';
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.1);
+        };
+        
+        // Score sound - happy ding
+        this.sounds.score = () => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            // Rising tone
+            oscillator.frequency.setValueAtTime(523, this.audioContext.currentTime); // C5
+            oscillator.frequency.linearRampToValueAtTime(784, this.audioContext.currentTime + 0.2); // G5
+            
+            gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.3);
+            
+            oscillator.type = 'sine';
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.3);
+        };
+        
+        // Game over sound - dramatic descending tone
+        this.sounds.gameOver = () => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            // Descending dramatic tone
+            oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.8);
+            
+            gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.8);
+            
+            oscillator.type = 'sawtooth';
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.8);
+        };
+        
+        // Ambient background sound - subtle wind
+        this.sounds.ambient = () => {
+            if (!this.ambientSound) {
+                const bufferSize = this.audioContext.sampleRate * 2; // 2 seconds
+                const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                // Generate pink noise for wind effect
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.02; // Very quiet
+                }
+                
+                const source = this.audioContext.createBufferSource();
+                const filter = this.audioContext.createBiquadFilter();
+                const gainNode = this.audioContext.createGain();
+                
+                source.buffer = buffer;
+                source.loop = true;
+                
+                filter.type = 'lowpass';
+                filter.frequency.value = 200;
+                
+                gainNode.gain.value = 0.05;
+                
+                source.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.masterGain);
+                
+                this.ambientSound = { source, gainNode };
+                source.start();
+            }
+        };
+    }
+    
+    async ensureAudioContext() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
+    }
+    
+    async playSound(soundName) {
+        if (!this.audioContext || !this.sounds[soundName]) return;
+        
+        try {
+            await this.ensureAudioContext();
+            this.sounds[soundName]();
+        } catch (error) {
+            console.warn('Error playing sound:', error);
+        }
+    }
+    
+    startAmbient() {
+        if (this.audioContext) {
+            this.sounds.ambient();
+        }
+    }
+    
+    stopAmbient() {
+        if (this.ambientSound) {
+            this.ambientSound.source.stop();
+            this.ambientSound = null;
+        }
+    }
+}
+
+class VisualEffects {
+    constructor(canvas, ctx) {
+        this.canvas = canvas;
+        this.ctx = ctx;
+        this.effects = [];
+        this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
+        this.scoreFlash = { active: false, alpha: 0, duration: 0 };
+        this.particles = [];
+    }
+    
+    addScreenShake(intensity = 5, duration = 300) {
+        this.screenShake = {
+            intensity,
+            duration,
+            timer: 0
+        };
+    }
+    
+    addScoreFlash() {
+        this.scoreFlash = {
+            active: true,
+            alpha: 0.8,
+            duration: 500,
+            timer: 0
+        };
+    }
+    
+    addGameOverParticles(x, y) {
+        for (let i = 0; i < 15; i++) {
+            this.particles.push({
+                x: x + (Math.random() - 0.5) * 60,
+                y: y + (Math.random() - 0.5) * 60,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                life: 1.0,
+                decay: 0.008 + Math.random() * 0.002,
+                size: 3 + Math.random() * 4,
+                color: Math.random() > 0.5 ? '#FF6B6B' : '#FFA500'
+            });
+        }
+    }
+    
+    update(deltaTime) {
+        // Update screen shake
+        if (this.screenShake.duration > 0) {
+            this.screenShake.timer += deltaTime;
+            const progress = this.screenShake.timer / this.screenShake.duration;
+            
+            if (progress < 1) {
+                const shakeFactor = (1 - progress) * this.screenShake.intensity;
+                this.screenShake.x = (Math.random() - 0.5) * shakeFactor;
+                this.screenShake.y = (Math.random() - 0.5) * shakeFactor;
+            } else {
+                this.screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
+            }
+        }
+        
+        // Update score flash
+        if (this.scoreFlash.active) {
+            this.scoreFlash.timer += deltaTime;
+            const progress = this.scoreFlash.timer / this.scoreFlash.duration;
+            
+            if (progress < 1) {
+                this.scoreFlash.alpha = 0.8 * (1 - progress);
+            } else {
+                this.scoreFlash.active = false;
+            }
+        }
+        
+        // Update particles
+        this.particles = this.particles.filter(particle => {
+            particle.x += particle.vx * deltaTime;
+            particle.y += particle.vy * deltaTime;
+            particle.vy += 0.0005 * deltaTime; // Gravity
+            particle.life -= particle.decay * deltaTime;
+            
+            return particle.life > 0;
+        });
+    }
+    
+    applyScreenShake() {
+        if (this.screenShake.duration > 0) {
+            this.ctx.translate(this.screenShake.x, this.screenShake.y);
+        }
+    }
+    
+    renderScoreFlash() {
+        if (this.scoreFlash.active) {
+            this.ctx.save();
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${this.scoreFlash.alpha})`;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.restore();
+        }
+    }
+    
+    renderParticles() {
+        this.particles.forEach(particle => {
+            this.ctx.save();
+            this.ctx.globalAlpha = particle.life;
+            this.ctx.fillStyle = particle.color;
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+        });
+    }
+    
+    resetScreenShake() {
+        if (this.screenShake.duration > 0) {
+            this.ctx.translate(-this.screenShake.x, -this.screenShake.y);
+        }
+    }
+}
+
 class FlappyBirdGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -316,6 +581,10 @@ class FlappyBirdGame {
         this.pipeInterval = 2000; // Time between pipe spawns (ms)
         this.pipeGapHeight = 120; // Gap height (3-4 bird heights: 25*4 = 100, using 120 for fairness)
         
+        // Initialize sound and visual effects
+        this.soundEngine = new SoundEngine();
+        this.visualEffects = new VisualEffects(this.canvas, this.ctx);
+        
         this.init();
     }
     
@@ -345,6 +614,7 @@ class FlappyBirdGame {
                 break;
             case this.GAME_STATES.PLAYING:
                 this.bird.flap();
+                this.soundEngine.playSound('flap');
                 break;
             case this.GAME_STATES.GAMEOVER:
                 this.resetGame();
@@ -354,6 +624,7 @@ class FlappyBirdGame {
     
     startGame() {
         this.gameState = this.GAME_STATES.PLAYING;
+        this.soundEngine.startAmbient();
         this.updateUI();
     }
     
@@ -365,10 +636,16 @@ class FlappyBirdGame {
         // Clear all pipes
         this.pipes = [];
         this.lastPipeTime = 0;
+        // Stop ambient sound and reset visual effects
+        this.soundEngine.stopAmbient();
+        this.visualEffects.particles = [];
         this.updateUI();
     }
     
     update(deltaTime) {
+        // Always update visual effects
+        this.visualEffects.update(deltaTime);
+        
         if (this.gameState === this.GAME_STATES.PLAYING) {
             // Update bird physics
             this.bird.update(deltaTime);
@@ -378,8 +655,7 @@ class FlappyBirdGame {
             
             // Check pipe collisions
             if (this.checkPipeCollisions()) {
-                this.gameState = this.GAME_STATES.GAMEOVER;
-                this.updateUI();
+                this.handleGameOver();
                 return;
             }
             
@@ -390,8 +666,7 @@ class FlappyBirdGame {
             const collision = this.bird.checkBoundaryCollision(this.canvas.width, this.canvas.height);
             if (collision === 'bottom') {
                 // Game over when bird hits bottom
-                this.gameState = this.GAME_STATES.GAMEOVER;
-                this.updateUI();
+                this.handleGameOver();
             }
         }
     }
@@ -432,12 +707,64 @@ class FlappyBirdGame {
         this.pipes.forEach(pipe => {
             if (pipe.checkBirdPassed(this.bird)) {
                 this.score++;
+                this.soundEngine.playSound('score');
+                this.visualEffects.addScoreFlash();
+                this.triggerScoreAnimation();
                 this.updateUI();
             }
         });
     }
     
+    handleGameOver() {
+        this.gameState = this.GAME_STATES.GAMEOVER;
+        this.soundEngine.playSound('gameOver');
+        this.soundEngine.stopAmbient();
+        this.visualEffects.addScreenShake(8, 500);
+        this.visualEffects.addGameOverParticles(
+            this.bird.x + this.bird.width / 2,
+            this.bird.y + this.bird.height / 2
+        );
+        this.triggerGameOverAnimation();
+        this.updateUI();
+    }
+    
+    triggerScoreAnimation() {
+        // Animate score element
+        this.scoreElement.classList.remove('score-animate');
+        void this.scoreElement.offsetWidth; // Force reflow
+        this.scoreElement.classList.add('score-animate');
+        
+        // Animate canvas with glow
+        this.canvas.classList.remove('canvas-glow');
+        void this.canvas.offsetWidth; // Force reflow
+        this.canvas.classList.add('canvas-glow');
+        
+        // Remove animations after completion
+        setTimeout(() => {
+            this.scoreElement.classList.remove('score-animate');
+            this.canvas.classList.remove('canvas-glow');
+        }, 600);
+    }
+    
+    triggerGameOverAnimation() {
+        // Shake the entire game container
+        const gameContainer = document.querySelector('.game-container');
+        gameContainer.classList.remove('game-over-shake');
+        void gameContainer.offsetWidth; // Force reflow
+        gameContainer.classList.add('game-over-shake');
+        
+        // Remove animation after completion
+        setTimeout(() => {
+            gameContainer.classList.remove('game-over-shake');
+        }, 500);
+    }
+    
     render() {
+        this.ctx.save();
+        
+        // Apply screen shake effect
+        this.visualEffects.applyScreenShake();
+        
         this.clearCanvas();
         
         switch (this.gameState) {
@@ -451,6 +778,17 @@ class FlappyBirdGame {
                 this.renderGameOverState();
                 break;
         }
+        
+        // Render particles
+        this.visualEffects.renderParticles();
+        
+        // Reset screen shake transform
+        this.visualEffects.resetScreenShake();
+        
+        this.ctx.restore();
+        
+        // Render score flash (full screen effect)
+        this.visualEffects.renderScoreFlash();
         
         this.renderFPS();
     }
