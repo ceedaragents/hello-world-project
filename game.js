@@ -165,6 +165,126 @@ class Bird {
     }
 }
 
+class Pipe {
+    constructor(x, canvasHeight, gapHeight = 150, gapY = null) {
+        // Position properties
+        this.x = x;
+        this.width = 50;
+        this.canvasHeight = canvasHeight;
+        
+        // Gap properties
+        this.gapHeight = gapHeight;
+        // If gapY not provided, randomize gap position
+        this.gapY = gapY || this.randomizeGapPosition();
+        
+        // Calculate pipe heights
+        this.topHeight = this.gapY - this.gapHeight / 2;
+        this.bottomY = this.gapY + this.gapHeight / 2;
+        this.bottomHeight = this.canvasHeight - this.bottomY;
+        
+        // Scoring
+        this.passed = false;
+    }
+    
+    randomizeGapPosition() {
+        // Keep gap center between 25% and 75% of canvas height
+        const minGapY = this.canvasHeight * 0.25 + this.gapHeight / 2;
+        const maxGapY = this.canvasHeight * 0.75 - this.gapHeight / 2;
+        return minGapY + Math.random() * (maxGapY - minGapY);
+    }
+    
+    update(deltaTime, speed) {
+        this.x -= speed * deltaTime;
+    }
+    
+    render(ctx) {
+        ctx.save();
+        
+        // Pipe styling
+        ctx.fillStyle = '#32CD32'; // Lime green
+        ctx.strokeStyle = '#228B22'; // Forest green
+        ctx.lineWidth = 3;
+        
+        // Draw top pipe
+        if (this.topHeight > 0) {
+            ctx.fillRect(this.x, 0, this.width, this.topHeight);
+            ctx.strokeRect(this.x, 0, this.width, this.topHeight);
+            
+            // Top pipe cap
+            ctx.fillRect(this.x - 5, this.topHeight - 20, this.width + 10, 20);
+            ctx.strokeRect(this.x - 5, this.topHeight - 20, this.width + 10, 20);
+        }
+        
+        // Draw bottom pipe
+        if (this.bottomHeight > 0) {
+            ctx.fillRect(this.x, this.bottomY, this.width, this.bottomHeight);
+            ctx.strokeRect(this.x, this.bottomY, this.width, this.bottomHeight);
+            
+            // Bottom pipe cap
+            ctx.fillRect(this.x - 5, this.bottomY, this.width + 10, 20);
+            ctx.strokeRect(this.x - 5, this.bottomY, this.width + 10, 20);
+        }
+        
+        ctx.restore();
+    }
+    
+    getBounds() {
+        return {
+            // Top pipe bounds
+            topPipe: {
+                left: this.x,
+                right: this.x + this.width,
+                top: 0,
+                bottom: this.topHeight
+            },
+            // Bottom pipe bounds
+            bottomPipe: {
+                left: this.x,
+                right: this.x + this.width,
+                top: this.bottomY,
+                bottom: this.canvasHeight
+            }
+        };
+    }
+    
+    checkCollision(bird) {
+        const birdBounds = bird.getBounds();
+        const pipeBounds = this.getBounds();
+        
+        // Check collision with top pipe
+        if (this.topHeight > 0 && 
+            birdBounds.right > pipeBounds.topPipe.left &&
+            birdBounds.left < pipeBounds.topPipe.right &&
+            birdBounds.bottom > pipeBounds.topPipe.top &&
+            birdBounds.top < pipeBounds.topPipe.bottom) {
+            return 'top';
+        }
+        
+        // Check collision with bottom pipe
+        if (this.bottomHeight > 0 &&
+            birdBounds.right > pipeBounds.bottomPipe.left &&
+            birdBounds.left < pipeBounds.bottomPipe.right &&
+            birdBounds.bottom > pipeBounds.bottomPipe.top &&
+            birdBounds.top < pipeBounds.bottomPipe.bottom) {
+            return 'bottom';
+        }
+        
+        return null;
+    }
+    
+    checkBirdPassed(bird) {
+        if (!this.passed && bird.x > this.x + this.width) {
+            this.passed = true;
+            return true;
+        }
+        return false;
+    }
+    
+    isOffScreen() {
+        return this.x + this.width < 0;
+    }
+}
+
 class FlappyBirdGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -187,6 +307,14 @@ class FlappyBirdGame {
         
         // Initialize bird
         this.bird = new Bird(this.canvas.width / 4, this.canvas.height / 2);
+        
+        // Initialize pipes
+        this.pipes = [];
+        this.pipeSpeed = 0.15; // Pipes moving speed (pixels per millisecond)
+        this.pipeSpacing = 250; // Distance between pipe pairs
+        this.lastPipeTime = 0;
+        this.pipeInterval = 2000; // Time between pipe spawns (ms)
+        this.pipeGapHeight = 120; // Gap height (3-4 bird heights: 25*4 = 100, using 120 for fairness)
         
         this.init();
     }
@@ -234,6 +362,9 @@ class FlappyBirdGame {
         this.score = 0;
         // Reset bird position and physics
         this.bird.reset(this.canvas.width / 4, this.canvas.height / 2);
+        // Clear all pipes
+        this.pipes = [];
+        this.lastPipeTime = 0;
         this.updateUI();
     }
     
@@ -241,6 +372,19 @@ class FlappyBirdGame {
         if (this.gameState === this.GAME_STATES.PLAYING) {
             // Update bird physics
             this.bird.update(deltaTime);
+            
+            // Update pipes
+            this.updatePipes(deltaTime);
+            
+            // Check pipe collisions
+            if (this.checkPipeCollisions()) {
+                this.gameState = this.GAME_STATES.GAMEOVER;
+                this.updateUI();
+                return;
+            }
+            
+            // Check scoring (bird passed through pipes)
+            this.checkScoring();
             
             // Check boundary collisions
             const collision = this.bird.checkBoundaryCollision(this.canvas.width, this.canvas.height);
@@ -250,6 +394,47 @@ class FlappyBirdGame {
                 this.updateUI();
             }
         }
+    }
+    
+    updatePipes(deltaTime) {
+        // Spawn new pipes
+        if (Date.now() - this.lastPipeTime > this.pipeInterval) {
+            this.spawnPipe();
+            this.lastPipeTime = Date.now();
+        }
+        
+        // Update existing pipes
+        this.pipes.forEach(pipe => {
+            pipe.update(deltaTime, this.pipeSpeed);
+        });
+        
+        // Remove off-screen pipes (memory management)
+        this.pipes = this.pipes.filter(pipe => !pipe.isOffScreen());
+    }
+    
+    spawnPipe() {
+        const x = this.canvas.width + 50; // Start off-screen to the right
+        const pipe = new Pipe(x, this.canvas.height, this.pipeGapHeight);
+        this.pipes.push(pipe);
+    }
+    
+    checkPipeCollisions() {
+        for (let pipe of this.pipes) {
+            const collision = pipe.checkCollision(this.bird);
+            if (collision) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    checkScoring() {
+        this.pipes.forEach(pipe => {
+            if (pipe.checkBirdPassed(this.bird)) {
+                this.score++;
+                this.updateUI();
+            }
+        });
     }
     
     render() {
@@ -324,6 +509,11 @@ class FlappyBirdGame {
     }
     
     renderPlayingState() {
+        // Render pipes first (behind bird)
+        this.pipes.forEach(pipe => {
+            pipe.render(this.ctx);
+        });
+        
         // Render the bird
         this.bird.render(this.ctx);
         
